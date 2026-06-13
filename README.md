@@ -272,7 +272,7 @@ Configured in `backend/.env` (see `backend/.env.example`):
 | `SMTP_USER` / `SMTP_PASS` | No | SMTP credentials (e.g. Gmail address + app password) |
 | `SMTP_FROM` | No | "From" address for OTP emails (defaults to `SMTP_USER`) |
 | `CORS_ORIGIN` | No | Comma-separated list of allowed frontend origins. Without it, all origins are allowed |
-| `DATA_DIR` | No | Directory for the SQLite database file. Useful for mounting a persistent disk in production |
+| `DATA_DIR` | No | Directory for the SQLite database file. Useful for mounting a persistent disk on paid plans |
 
 Without SMTP configured, password-reset OTPs are logged to the backend console instead of emailed. Without `GEMINI_API_KEY`, recommendations fall back to built-in heuristics.
 
@@ -280,9 +280,9 @@ Without SMTP configured, password-reset OTPs are logged to the backend console i
 
 ## Deploying to Render
 
-This repo includes a [`render.yaml`](./render.yaml) Blueprint that provisions two services:
+This repo includes a [`render.yaml`](./render.yaml) Blueprint that provisions two free-tier services:
 
-- **`nexus-backend`** — Node web service running the Express API, with a 1GB persistent disk mounted at `/data` for the SQLite database
+- **`nexus-backend`** — Node web service running the Express API
 - **`nexus-frontend`** — static site built from `frontend/`, served as static assets
 
 ### Steps
@@ -297,7 +297,8 @@ This repo includes a [`render.yaml`](./render.yaml) Blueprint that provisions tw
 
 ### Notes
 
-- **Persistent disk requires a paid instance type.** The `disk` block in `render.yaml` only works on paid plans (Render's free tier doesn't support attached disks). On the free plan, omit the `disk` block and `DATA_DIR` — but be aware the SQLite database will be wiped on every redeploy.
+- **The free plan has an ephemeral filesystem** — Render's free web services don't support attached disks, so the SQLite database is wiped on every redeploy (and the demo/seed data regenerates). This is fine for demos and testing; for persistent data, upgrade `nexus-backend` to a paid instance type, add a `disk` block to `render.yaml` (mount path e.g. `/data`), and set `DATA_DIR=/data`.
+- Free web services also **spin down after inactivity** and take ~30-60s to wake on the next request.
 - Because `VITE_API_BASE_URL` is baked into the frontend at **build time**, any change to it requires a rebuild/redeploy of `nexus-frontend`.
 - The frontend is a single-page app with no client-side routing, so no rewrite rules are needed for the static site.
 
