@@ -1,8 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTaskStore } from '../store/taskStore';
-import { useAuthStore } from '../store/authStore';
 import { useUiStore } from '../store/uiStore';
-import { geminiRecommend, heuristicRecommend, isGeminiConfigured, type Recommendation } from '../hooks/useGemini';
+import { recommendationsApi, type Recommendation } from '../api/recommendations.api';
 import { tasksApi } from '../api/tasks.api';
 
 const TONE_BG: Record<string, string> = {
@@ -13,23 +12,26 @@ const TONE_BORDER: Record<string, string> = {
 };
 
 export function RecommendationsView() {
-  const tasks = useTaskStore(s => s.tasks);
   const { updateTask, setFilters } = useTaskStore();
-  const user = useAuthStore(s => s.user);
   const { navigate, addToast } = useUiStore();
   const [recs, setRecs] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(false);
-  const geminiOn = isGeminiConfigured();
+  const [geminiOn, setGeminiOn] = useState(false);
+
+  useEffect(() => {
+    recommendationsApi.status().then(res => setGeminiOn(res.data.enabled)).catch(() => {});
+  }, []);
 
   async function handleGenerate() {
     setLoading(true);
     try {
-      const result = geminiOn ? await geminiRecommend(tasks, user) : heuristicRecommend(tasks);
-      setRecs(result);
+      const res = await recommendationsApi.generate();
+      setRecs(res.data.recommendations);
+      setGeminiOn(res.data.source === 'gemini');
+      if (res.data.error) addToast({ message: `Recommendations failed: ${res.data.error}`, type: 'error' });
     } catch (err: unknown) {
-      const msg = (err as Error).message || 'Failed to generate';
-      if (msg === 'NO_KEY') setRecs(heuristicRecommend(tasks));
-      else addToast({ message: `Recommendations failed: ${msg}`, type: 'error' });
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to generate';
+      addToast({ message: `Recommendations failed: ${msg}`, type: 'error' });
     } finally {
       setLoading(false);
     }

@@ -1,25 +1,49 @@
-# CODING AGENTS: READ THIS FIRST
+# Nexus Task Manager
 
-This is a **handoff bundle** from Claude Design (claude.ai/design).
+Nexus is a task manager with auto-scheduling, productivity analytics, and AI-powered recommendations. It started as a Claude Design prototype (see `project/` and `chats/` for the original design handoff and iteration history) and has been implemented as a full-stack app.
 
-A user mocked up designs in HTML/CSS/JS using an AI design tool, then exported this bundle so a coding agent can implement the designs for real.
+## Stack
 
-## What you should do — IMPORTANT
+- **Frontend** — React 18 + TypeScript + Vite + Tailwind CSS + Zustand (`frontend/`)
+- **Backend** — Express + better-sqlite3 + JWT auth (`backend/`)
 
-**Read the chat transcripts first.** There are 3 chat transcript(s) in `chats/`. The transcripts show the full back-and-forth between the user and the design assistant — they tell you **what the user actually wants** and **where they landed** after iterating. Don't skip them. The final HTML files are the output, but the chat is where the intent lives.
+## Getting started
 
-**Read `project/index.html` in full.** The user had this file open when they triggered the handoff, so it's almost certainly the primary design they want built. Read it top to bottom — don't skim. Then **follow its imports**: open every file it pulls in (shared components, CSS, scripts) so you understand how the pieces fit together before you start implementing.
+### 1. Backend
 
-**If anything is ambiguous, ask the user to confirm before you start implementing.** It's much cheaper to clarify scope up front than to build the wrong thing.
+```bash
+cd backend
+cp .env.example .env
+npm install
+npm run dev
+```
 
-## About the design files
+The API listens on `http://localhost:3001` and stores data in `backend/data/nexus.db` (created automatically).
 
-The design medium is **HTML/CSS/JS** — these are prototypes, not production code. Your job is to **recreate them pixel-perfectly** in whatever technology makes sense for the target codebase (React, Vue, native, whatever fits). Match the visual output; don't copy the prototype's internal structure unless it happens to fit.
+Optional: set `GEMINI_API_KEY` in `.env` to enable AI-generated recommendations (`/api/recommendations/generate`). Without it, the endpoint falls back to built-in heuristics.
 
-**Don't render these files in a browser or take screenshots unless the user asks you to.** Everything you need — dimensions, colors, layout rules — is spelled out in the source. Read the HTML and CSS directly; a screenshot won't tell you anything they don't.
+### 2. Frontend
 
-## Bundle contents
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-- `README.md` — this file
-- `chats/` — conversation transcripts (read these!)
-- `project/` — the `Task Manager` project files (HTML prototypes, assets, components)
+The dev server runs on Vite's default port and proxies `/api` to `http://localhost:3001`.
+
+### Demo account
+
+- Email: `demo@nexus.io`
+- Password: `Demo!2026`
+
+New signups are seeded with the default categories (Work, Personal, Academic) and a starter set of sample tasks, so the app isn't empty on first login.
+
+## Project layout
+
+```
+backend/    Express API (auth, tasks, categories, notifications, activity, recommendations)
+frontend/   React app
+chats/      Original Claude Design conversation transcripts (historical reference)
+project/    Original HTML prototype + design handoff notes (historical reference)
+```
