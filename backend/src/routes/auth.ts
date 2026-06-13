@@ -5,6 +5,7 @@ import { db, seedUserData } from '../db/index.js';
 import { signAccessToken, signRefreshToken, verifyRefreshToken, REFRESH_EXPIRES_IN_MS } from '../lib/jwt.js';
 import { toUserJson } from '../lib/serialize.js';
 import { requireAuth } from '../middleware/auth.js';
+import { sendOtpEmail } from '../lib/mailer.js';
 
 const router = Router();
 
@@ -94,9 +95,9 @@ router.patch('/me', requireAuth, (req, res) => {
   res.json({ user: toUserJson(updated) });
 });
 
-// --- Password reset flow (OTP via console in this demo backend) ---
+// --- Password reset flow (OTP sent via email, falls back to console if SMTP isn't configured) ---
 
-router.post('/forgot/request', (req, res) => {
+router.post('/forgot/request', async (req, res) => {
   const { email } = req.body || {};
   if (!email) return res.status(400).json({ message: 'Missing email' });
 
@@ -109,7 +110,11 @@ router.post('/forgot/request', (req, res) => {
       VALUES (?, ?, ?, NULL, NULL)
       ON CONFLICT(email) DO UPDATE SET otp = ?, otp_expires_at = ?, reset_token = NULL, reset_expires_at = NULL
     `).run(String(email).toLowerCase(), otp, otpExpiresAt, otp, otpExpiresAt);
-    console.log(`[nexus] Password reset code for ${email}: ${otp}`);
+    try {
+      await sendOtpEmail(String(email).toLowerCase(), otp);
+    } catch (err) {
+      console.error('[nexus] Failed to send password reset email:', err);
+    }
   }
   // Always respond with success to avoid leaking which emails are registered.
   res.json({ ok: true });
