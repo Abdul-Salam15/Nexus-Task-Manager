@@ -78,10 +78,15 @@ CREATE TABLE IF NOT EXISTS activity (
 );
 `);
 
-/** Seeds a brand-new user with the same demo dataset as the design reference. */
+/** Gives a brand-new user the default categories so they have somewhere to file tasks. */
 export function seedUserData(userId: string) {
   const insertCategory = db.prepare('INSERT INTO categories (id, user_id, name, icon) VALUES (?, ?, ?, ?)');
   for (const c of DEFAULT_CATEGORIES) insertCategory.run(uuid(), userId, c.name, c.icon);
+}
+
+/** Seeds the demo account with the same sample dataset as the design reference. */
+function seedDemoData(userId: string) {
+  seedUserData(userId);
 
   const insertTask = db.prepare(`
     INSERT INTO tasks (id, user_id, title, priority, deadline, effort_hours, category, status, scheduled, completed_at, order_index)
@@ -104,7 +109,7 @@ export function ensureDemoUser() {
   db.prepare('INSERT INTO users (id, full_name, email, password_hash, focus, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(
     id, 'Aisha Khan', 'demo@nexus.io', bcrypt.hashSync('Demo!2026', 10), 'Work', new Date().toISOString()
   );
-  seedUserData(id);
+  seedDemoData(id);
 }
 
 ensureDemoUser();
