@@ -7,7 +7,7 @@ import { v4 as uuid } from 'uuid';
 import { seedActivity, seedNotifications, seedTasks, DEFAULT_CATEGORIES } from './seed.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dataDir = path.join(__dirname, '..', '..', 'data');
+const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', '..', 'data');
 fs.mkdirSync(dataDir, { recursive: true });
 
 export const db = new Database(path.join(dataDir, 'nexus.db'));
