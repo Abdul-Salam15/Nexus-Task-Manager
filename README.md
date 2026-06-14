@@ -267,7 +267,7 @@ Configured in `backend/.env` (see `backend/.env.example`):
 | `JWT_ACCESS_SECRET` | Recommended | Signing secret for short-lived access tokens |
 | `JWT_REFRESH_SECRET` | Recommended | Signing secret for refresh tokens |
 | `GEMINI_API_KEY` | No | Enables AI-generated recommendations via Gemini |
-| `GEMINI_MODEL` | No | Gemini model name (default `gemini-2.0-flash`) |
+| `GEMINI_MODEL` | No | Gemini model name (default `gemini-1.5-flash`) |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` | No | SMTP server for sending OTP emails |
 | `SMTP_USER` / `SMTP_PASS` | No | SMTP credentials (e.g. Gmail address + app password) |
 | `SMTP_FROM` | No | "From" address for OTP emails (defaults to `SMTP_USER`) |

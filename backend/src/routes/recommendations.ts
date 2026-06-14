@@ -22,7 +22,11 @@ router.post('/generate', async (req, res) => {
       return res.json({ recommendations, source: 'gemini' });
     } catch (err: any) {
       if (err?.message !== 'NO_KEY') {
-        return res.json({ recommendations: heuristicRecommend(rows as any), source: 'heuristic', error: err.message });
+        console.error('[nexus] Gemini recommendation failed:', err.message);
+        const error = /quota|429|RESOURCE_EXHAUSTED/i.test(err.message)
+          ? "AI recommendations have hit their usage limit for now. Showing built-in suggestions instead."
+          : "AI recommendations are temporarily unavailable. Showing built-in suggestions instead.";
+        return res.json({ recommendations: heuristicRecommend(rows as any), source: 'heuristic', error });
       }
     }
   }

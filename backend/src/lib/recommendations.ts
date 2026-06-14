@@ -17,7 +17,7 @@ export function isGeminiConfigured(): boolean {
 export async function geminiRecommend(tasks: ProductivityTask[], firstName: string): Promise<Recommendation[]> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error('NO_KEY');
-  const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+  const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
 
   const today = todayIso();
   const wl = computeWorkload(tasks);
