@@ -25,3 +25,18 @@ export async function sendOtpEmail(to: string, otp: string) {
     html: `<p>Your password reset code is <strong>${otp}</strong>. It expires in 5 minutes.</p>`,
   });
 }
+
+export async function sendNotificationEmail(to: string, title: string, body: string) {
+  if (!transporter) {
+    console.log(`[nexus] Notification for ${to}: ${title} - ${body}`);
+    return;
+  }
+
+  await transporter.sendMail({
+    from: SMTP_FROM || SMTP_USER,
+    to,
+    subject: `Nexus: ${title}`,
+    text: body,
+    html: `<p><strong>${title}</strong></p><p>${body}</p>`,
+  });
+}

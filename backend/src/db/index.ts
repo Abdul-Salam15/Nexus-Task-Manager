@@ -57,7 +57,9 @@ CREATE TABLE IF NOT EXISTS tasks (
   status TEXT NOT NULL,
   scheduled TEXT,
   completed_at TEXT,
-  order_index REAL NOT NULL
+  order_index REAL NOT NULL,
+  due_soon_notified INTEGER NOT NULL DEFAULT 0,
+  overdue_notified INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS notifications (
@@ -77,6 +79,15 @@ CREATE TABLE IF NOT EXISTS activity (
   time TEXT NOT NULL
 );
 `);
+
+// Migrate tasks created before the deadline-notification columns existed.
+const taskColumns = (db.prepare('PRAGMA table_info(tasks)').all() as { name: string }[]).map(c => c.name);
+if (!taskColumns.includes('due_soon_notified')) {
+  db.exec('ALTER TABLE tasks ADD COLUMN due_soon_notified INTEGER NOT NULL DEFAULT 0');
+}
+if (!taskColumns.includes('overdue_notified')) {
+  db.exec('ALTER TABLE tasks ADD COLUMN overdue_notified INTEGER NOT NULL DEFAULT 0');
+}
 
 /** Gives a brand-new user the default categories so they have somewhere to file tasks. */
 export function seedUserData(userId: string) {

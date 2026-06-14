@@ -27,7 +27,7 @@ Nexus is a full-stack task manager with **auto-scheduling**, **productivity anal
 - 📅 **Auto-scheduling** — packs pending tasks into upcoming weekdays (deadline ASC, priority DESC, effort ASC), capped at 8h/day, with overload warnings
 - 📊 **Productivity analytics** — completion rate, streaks, workload-by-day breakdown
 - 🤖 **AI recommendations** — Gemini-powered suggestions (falls back to built-in heuristics if no API key is configured)
-- 🔔 **Notifications & activity feed** — per-user activity log and notification center
+- 🔔 **Notifications & activity feed** — per-user activity log and notification center, with matching email alerts (task created/started/completed, deadline reminders, overdue alerts) sent via SMTP if configured
 
 ---
 

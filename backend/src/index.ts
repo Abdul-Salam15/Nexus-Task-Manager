@@ -8,6 +8,7 @@ import categoriesRoutes from './routes/categories.js';
 import notificationsRoutes from './routes/notifications.js';
 import activityRoutes from './routes/activity.js';
 import recommendationsRoutes from './routes/recommendations.js';
+import { checkDeadlineNotifications } from './lib/deadlineNotifier.js';
 
 const app = express();
 
@@ -34,3 +35,9 @@ const PORT = Number(process.env.PORT) || 3001;
 app.listen(PORT, () => {
   console.log(`Nexus backend listening on http://localhost:${PORT}`);
 });
+
+const ONE_HOUR_MS = 60 * 60 * 1000;
+checkDeadlineNotifications().catch(err => console.error('[nexus] Deadline notification check failed:', err.message));
+setInterval(() => {
+  checkDeadlineNotifications().catch(err => console.error('[nexus] Deadline notification check failed:', err.message));
+}, ONE_HOUR_MS);
