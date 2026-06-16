@@ -104,68 +104,203 @@ export function heuristicRecommend(tasks: ProductivityTask[]): Recommendation[] 
   const today = todayIso();
   const recs: Recommendation[] = [];
 
-  const overdue = tasks.filter(t => t.status !== 'Done' && t.deadline < today);
-  if (overdue.length > 0) {
+  // --- 1. Overdue tasks (all of them, sorted most-overdue first) ---
+  const overdue = tasks
+    .filter(t => t.status !== 'Done' && daysFromToday(t.deadline) < 0)
+    .sort((a, b) => daysFromToday(a.deadline) - daysFromToday(b.deadline));
+
+  if (overdue.length === 1) {
     const t = overdue[0];
+    const daysLate = Math.abs(daysFromToday(t.deadline));
     recs.push({
       icon: '🔥',
       tone: 'crimson',
-      title: `Overdue: ${t.title}`,
-      body: `This task was due ${daysFromToday(t.deadline) * -1} day(s) ago. Address it now to get back on track.`,
+      title: `Overdue: "${t.title}"`,
+      body: `"${t.title}" is ${daysLate} day${daysLate > 1 ? 's' : ''} past its deadline${t.priority === 'High' ? ' and is high priority' : ''}. Every day it slips makes catch-up harder — start it now.`,
       actionLabel: 'Start now',
       actionType: 'start',
       taskId: t.id,
     });
+  } else if (overdue.length > 1) {
+    const worst = overdue[0];
+    const daysLate = Math.abs(daysFromToday(worst.deadline));
+    const listed = overdue.slice(0, 3).map(t => `"${t.title}"`).join(', ');
+    const overflow = overdue.length > 3 ? ` and ${overdue.length - 3} more` : '';
+    recs.push({
+      icon: '🔥',
+      tone: 'crimson',
+      title: `${overdue.length} tasks are overdue`,
+      body: `${listed}${overflow} are all past their deadlines. "${worst.title}" is the furthest behind at ${daysLate} day${daysLate > 1 ? 's' : ''} — tackle it first before the gap grows further.`,
+      actionLabel: 'Start most overdue',
+      actionType: 'start',
+      taskId: worst.id,
+    });
   }
 
+  // --- 2. Tasks due today ---
+  const overdueIds = new Set(overdue.map(t => t.id));
+  const dueToday = tasks.filter(
+    t => t.status !== 'Done' && daysFromToday(t.deadline) === 0 && !overdueIds.has(t.id),
+  );
+  if (dueToday.length > 0 && recs.length < 5) {
+    const byPriority = [...dueToday].sort((a, b) => {
+      const rank = { High: 0, Medium: 1, Low: 2 };
+      return rank[a.priority] - rank[b.priority];
+    });
+    const lead = byPriority[0];
+    const totalHours = dueToday.reduce((s, t) => s + t.effortHours, 0);
+    recs.push({
+      icon: '⚡',
+      tone: 'crimson',
+      title: dueToday.length === 1
+        ? `"${lead.title}" is due today`
+        : `${dueToday.length} tasks due today (${totalHours}h total)`,
+      body: dueToday.length === 1
+        ? `"${lead.title}" (${lead.effortHours}h, ${lead.priority} priority) must be finished today. ${lead.status === 'Pending' ? "It hasn't been started yet — open it now." : 'Finish it before anything else.'}`
+        : `You have ${dueToday.length} tasks due today totalling ${totalHours}h of work. Lead with "${lead.title}" (${lead.priority} priority, ${lead.effortHours}h) — it's the most critical. ${totalHours > 8 ? "That's a heavy day; consider deferring lower-priority items." : ''}`,
+      actionLabel: 'Start now',
+      actionType: 'start',
+      taskId: lead.id,
+    });
+  }
+
+  // --- 3. Tasks due tomorrow that are unstarted or high effort ---
+  const dueTomorrow = tasks.filter(
+    t => t.status !== 'Done' && daysFromToday(t.deadline) === 1,
+  );
+  if (dueTomorrow.length > 0 && recs.length < 5) {
+    const urgent = dueTomorrow.filter(t => t.priority === 'High' || t.effortHours >= 3);
+    if (urgent.length > 0) {
+      const lead = urgent.sort((a, b) => (b.priority === 'High' ? 1 : 0) - (a.priority === 'High' ? 1 : 0))[0];
+      recs.push({
+        icon: '📅',
+        tone: 'amber',
+        title: urgent.length === 1
+          ? `"${lead.title}" is due tomorrow`
+          : `${urgent.length} demanding tasks due tomorrow`,
+        body: urgent.length === 1
+          ? `"${lead.title}" (${lead.effortHours}h, ${lead.priority} priority) is due tomorrow${lead.status === 'Pending' ? " and hasn't been started" : ''}. ${lead.effortHours >= 3 ? 'Start it today to avoid a last-minute crunch.' : 'Plan to wrap it up first thing tomorrow.'}`
+          : `${urgent.length} tasks due tomorrow are either high priority or require significant effort — "${urgent.map(t => t.title).join('", "')}"${urgent.length > 2 ? '' : ''}. Start on the heaviest one today to avoid a deadline crunch.`,
+        actionLabel: 'Start today',
+        actionType: 'start',
+        taskId: lead.id,
+      });
+    }
+  }
+
+  // --- 4. Workload overload (most overloaded day highlighted) ---
   const wl = computeWorkload(tasks);
-  const overloadedDays = Object.entries(wl).filter(([, h]) => h > 8);
-  if (overloadedDays.length > 0) {
+  const overloadedDays = Object.entries(wl)
+    .filter(([, h]) => h > 8)
+    .sort(([, a], [, b]) => b - a);
+  if (overloadedDays.length > 0 && recs.length < 5) {
+    const [worstDay, worstHours] = overloadedDays[0];
+    const label = worstDay === today
+      ? 'Today'
+      : new Date(worstDay + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
     recs.push({
       icon: '⚖️',
       tone: 'amber',
-      title: `${overloadedDays.length} day(s) are overloaded`,
-      body: `You have days scheduled over 8h. Run auto-schedule to rebalance your workload.`,
-      actionLabel: 'Rebalance',
+      title: overloadedDays.length === 1
+        ? `${label} is overloaded (${worstHours}h scheduled)`
+        : `${overloadedDays.length} days are overloaded`,
+      body: overloadedDays.length === 1
+        ? `${label} has ${worstHours}h of work scheduled — ${(worstHours - 8).toFixed(1)}h over a sustainable 8h day. Auto-schedule can shift lower-priority tasks to lighter days.`
+        : `${overloadedDays.length} days exceed 8h. The worst is ${label} at ${worstHours}h. Auto-schedule will redistribute tasks to keep each day manageable.`,
+      actionLabel: 'Rebalance now',
       actionType: 'rebalance',
     });
   }
 
-  const urgent = tasks.filter(t => t.status !== 'Done' && t.priority === 'High' && daysFromToday(t.deadline) <= 2);
-  if (urgent.length > 0 && !overdue.some(o => o.id === urgent[0].id)) {
+  // --- 5. Stuck in-progress tasks (past deadline but never completed) ---
+  const stuck = tasks.filter(t => t.status === 'In Progress' && daysFromToday(t.deadline) < 0);
+  if (stuck.length > 0 && recs.length < 5) {
+    const t = stuck[0];
+    const daysLate = Math.abs(daysFromToday(t.deadline));
     recs.push({
-      icon: '⚡',
+      icon: '🔄',
       tone: 'crimson',
-      title: `Urgent: ${urgent[0].title}`,
-      body: `High-priority task due in ${daysFromToday(urgent[0].deadline)} day(s). Consider starting it today.`,
-      actionLabel: 'Start now',
-      actionType: 'start',
-      taskId: urgent[0].id,
+      title: `"${t.title}" is stalled`,
+      body: `This task has been In Progress for ${daysLate} day${daysLate > 1 ? 's' : ''} past its deadline without completion. Consider breaking it into smaller steps, or reschedule it to set a realistic new target.`,
+      actionLabel: 'Reschedule',
+      actionType: 'reschedule',
+      taskId: t.id,
     });
   }
 
+  // --- 6. Unscheduled high-priority tasks due within 7 days ---
+  const unscheduledUrgent = tasks.filter(
+    t => t.status === 'Pending' && t.priority === 'High' && !t.scheduled
+      && daysFromToday(t.deadline) > 0 && daysFromToday(t.deadline) <= 7
+      && !overdueIds.has(t.id),
+  );
+  if (unscheduledUrgent.length > 0 && recs.length < 5) {
+    const t = unscheduledUrgent[0];
+    const daysLeft = daysFromToday(t.deadline);
+    recs.push({
+      icon: '📌',
+      tone: 'amber',
+      title: `"${t.title}" isn't scheduled yet`,
+      body: `This high-priority task (${t.effortHours}h) is due in ${daysLeft} day${daysLeft > 1 ? 's' : ''} but has no scheduled date. Without a slot on your calendar it's easy to miss — run auto-schedule or assign it a day now.`,
+      actionLabel: 'Auto-schedule',
+      actionType: 'rebalance',
+    });
+  }
+
+  // --- 7. Backlog insight (specific, not generic) ---
   const pending = tasks.filter(t => t.status === 'Pending');
-  if (pending.length >= 5) {
+  const pendingHigh = pending.filter(t => t.priority === 'High');
+  if (pending.length >= 5 && recs.length < 5) {
     recs.push({
       icon: '📋',
       tone: 'violet',
-      title: `${pending.length} tasks in your backlog`,
-      body: `Review your pending tasks and schedule the most important ones this week.`,
+      title: `${pending.length} unstarted tasks in your backlog`,
+      body: pendingHigh.length > 0
+        ? `You have ${pending.length} pending tasks — ${pendingHigh.length} are high priority. Leading with "${pendingHigh[0].title}" will have the most impact. Open your backlog and schedule it this week.`
+        : `You have ${pending.length} pending tasks waiting. Reviewing and scheduling the top items this week will prevent a pile-up as deadlines approach.`,
       actionLabel: 'View backlog',
       actionType: 'showBacklog',
     });
   }
 
-  const doneTasks = tasks.filter(t => t.status === 'Done');
-  if (doneTasks.length > 0 && recs.length < 3) {
-    recs.push({
-      icon: '🎯',
-      tone: 'green',
-      title: `${doneTasks.length} tasks completed`,
-      body: `Great progress! Keep the momentum going — tackle another task today.`,
-      actionLabel: null,
-      actionType: 'none',
-    });
+  // --- 8. Positive reinforcement / streak (only if we have room) ---
+  if (recs.length < 3) {
+    const streak = computeStreak(tasks);
+    const score = computeProductivityScore(tasks);
+    const done = tasks.filter(t => t.status === 'Done');
+
+    if (streak >= 3) {
+      recs.push({
+        icon: '🔥',
+        tone: 'green',
+        title: `${streak}-day productivity streak!`,
+        body: `You've completed tasks ${streak} days in a row — that's a real habit forming. Keep it alive by scheduling at least one task for today.`,
+        actionLabel: null,
+        actionType: 'none',
+      });
+    } else if (done.length > 0) {
+      recs.push({
+        icon: '🎯',
+        tone: 'green',
+        title: `${done.length} task${done.length > 1 ? 's' : ''} completed`,
+        body: score >= 80
+          ? `You're completing ${score}% of tasks on time — excellent. Keep tackling tasks proactively to maintain this pace.`
+          : score >= 50
+          ? `${done.length} task${done.length > 1 ? 's' : ''} done with a ${score}% on-time rate. Scheduling tasks earlier in the week should push that number higher.`
+          : `${done.length} task${done.length > 1 ? 's' : ''} done so far, but only ${score}% were on time. Try assigning tasks to specific days further ahead of their deadlines.`,
+        actionLabel: null,
+        actionType: 'none',
+      });
+    } else {
+      recs.push({
+        icon: '🚀',
+        tone: 'violet',
+        title: 'Make your first move',
+        body: `No tasks completed yet — the hardest part is starting. Pick the highest-priority item from your list and put even 30 minutes into it today. Progress compounds.`,
+        actionLabel: 'View backlog',
+        actionType: 'showBacklog',
+      });
+    }
   }
 
   return recs.slice(0, 5);
