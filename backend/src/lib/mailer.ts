@@ -8,6 +8,8 @@ const transporter = SMTP_HOST && SMTP_USER && SMTP_PASS
       port: Number(SMTP_PORT) || 587,
       secure: SMTP_SECURE === 'true',
       auth: { user: SMTP_USER, pass: SMTP_PASS },
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
     })
   : null;
 
