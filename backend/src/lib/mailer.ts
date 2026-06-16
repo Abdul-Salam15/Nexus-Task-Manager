@@ -6,20 +6,29 @@ async function sendEmail(to: string, subject: string, html: string, text: string
     return;
   }
 
-  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
-    method: 'POST',
-    headers: {
-      'api-key': BREVO_API_KEY,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      sender: { name: EMAIL_FROM_NAME || 'Nexus', email: EMAIL_FROM_ADDRESS },
-      to: [{ email: to }],
-      subject,
-      htmlContent: html,
-      textContent: text,
-    }),
-  });
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), 8000);
+
+  let res: Response;
+  try {
+    res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      signal: abort.signal,
+      headers: {
+        'api-key': BREVO_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name: EMAIL_FROM_NAME || 'Nexus', email: EMAIL_FROM_ADDRESS },
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+        textContent: text,
+      }),
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (!res.ok) {
     const body = await res.text();
